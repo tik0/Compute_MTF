@@ -54,7 +54,6 @@ class ROI_selection(object):
         eh = EventHandler(self.filename)
         rectangle_selector = RectangleSelector(current_ax,
                                                eh.line_select_callback,
-                                               drawtype='box',
                                                useblit=True,
                                                button=[1, 2, 3],
                                                minspanx=5, minspany=5,
@@ -82,6 +81,7 @@ class PDS_Compute_MTF(object):
         self.threshold = (area_below_thresh - area_above_thresh)/2 + area_above_thresh
 
         edges = cv2.Canny(self.data, self.min, self.max-5)
+       	       
         fig = plt.figure()
         fig.suptitle(filename + ' Analysis with ' + str(roi), fontsize=20)
         plt.subplot(2, 2, 1)
