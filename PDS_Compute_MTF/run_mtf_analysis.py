@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import argparse
+import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.widgets import RectangleSelector
@@ -31,8 +32,8 @@ def nan_helper(y):
 
 class EventHandler(object):
 
-    def __init__(self, filename):
-        self.filename = filename
+    def __init__(self):
+        self.image_array = None
 
     def line_select_callback(self, eclick, erelease):
         'eclick and erelease are the press and release events'
@@ -46,17 +47,19 @@ class EventHandler(object):
     def event_exit_manager(self, event):
         if event.key in ['enter']:
             #PDS_Compute_MTF(self.filename, self.roi)
-            img_array = mtf.Helper.LoadImageAsArray(filename)
+            # img_array = mtf.Helper.LoadImageAsArray(filename)
             fig = plt.figure(2) # write to figure 2 which should always show the current mtf results
             fig.clear()
-            mtf_result = mtf.MTF.CalculateMtf(img_array[self.roi[0]:self.roi[1], self.roi[2]:self.roi[3]], verbose=mtf.Verbosity.DETAIL)
+            image_cropped = self.image_array[self.roi[0]:self.roi[1], self.roi[2]:self.roi[3]]
+            print(np.shape(image_cropped))
+            mtf_result = mtf.MTF.CalculateMtf(image_cropped, verbose=mtf.Verbosity.DETAIL)
 
 class ROI_selection(object):
 
     def __init__(self, filename):
         self.filename = filename
         self.image_data = cv2.imread(filename, 0)
-        fig_image, current_ax = plt.subplots()
+       	fig_image, current_ax = plt.subplots()
         plt.imshow(self.image_data, cmap='gray')
         eh = EventHandler(self.filename)
         rectangle_selector = RectangleSelector(current_ax,
@@ -68,10 +71,86 @@ class ROI_selection(object):
                                                interactive=True)
         plt.connect('key_press_event', eh.event_exit_manager)
         plt.show()
+        
+def onclick(event):
+    global video_paused
+    
+    if event.dblclick:
+        video_paused = not video_paused
+        if video_paused:
+            print("Video paused.")
+            print("- Select a rectangle for MTF analysis (hold and drag left mouse button and then press enter for confirmation)")
+            print("- After that double click the video again to resume. The MTF analysis will stay open until you do a new analysis.")
+        else:
+            print("Video resumed")
+            
+def on_key(event):
+    global close_program
+    if event.key == 'q':
+        close_program == True
+        print("Key 'q' was pressed. Closing the program")
+    
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('filepath', help='String Filepath')
-    args = parser.parse_args()
-    filename = args.filepath
-    ROI_selection(filename)
+    #parser = argparse.ArgumentParser()
+    #parser.add_argument('filepath', help='String Filepath')
+    #args = parser.parse_args()
+    #filename = args.filepath
+    #ROI_selection(filename)
+    cap = cv2.VideoCapture('/dev/video0')
+    fig_image, current_ax = plt.subplots()
+    fig_image.canvas.manager.set_window_title('Live Video')
+    connection_id = fig_image.canvas.mpl_connect('button_press_event', onclick)
+    connection_id = fig_image.canvas.mpl_connect('key_press_event', on_key)
+
+    eh = EventHandler()
+    rectangle_selector = RectangleSelector(current_ax,
+                                           eh.line_select_callback,
+                                           useblit=True,
+                                           button=[1, 2, 3],
+                                           minspanx=5, minspany=5,
+                                           spancoords='pixels',
+                                           interactive=True)
+    plt.connect('key_press_event', eh.event_exit_manager)
+    
+    if (cap.isOpened()== False): 
+        print("Error opening video stream or file")
+    
+    video_paused = False
+    close_program = False
+    video_paused_changed = False
+    last_click_time = 0
+    
+    print("Double click on the video to pause and select a rectangle")
+    
+    while(cap.isOpened()):
+        if close_program:
+            break
+        if not video_paused: 
+            ret, frame = cap.read()
+            if ret == True:
+                 #cv2.imshow('Frame',frame)
+                 print("new video frame")
+                 plt.figure(1)
+                 plt.title("close program by pressing any key")
+                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) / 255
+                 plt.imshow(frame, cmap='gray')
+                 
+                 eh.image_array = frame
+                 
+                 
+                 # without block=False the loop is paused until we close the plot
+                 plt.show(block=False)
+                 #plt.pause(0.001)
+                 
+                 #if plt.waitforbuttonpress(0.001):
+                 #    break
+                 
+                 plt.pause(0.001)
+                 
+            else:
+                break
+        else:
+            plt.pause(0.001)
+   	   
+    	
