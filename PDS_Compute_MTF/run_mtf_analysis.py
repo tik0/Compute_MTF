@@ -34,6 +34,15 @@ class EventHandler(object):
 
     def __init__(self):
         self.image_array = None
+        
+    def mouse_clicked(self, event):
+        global video_paused
+        if event.dblclick:
+            video_paused = not video_paused
+            if video_paused:
+                print("Video paused.")
+            else:
+                print("Video resumed")
 
     def line_select_callback(self, eclick, erelease):
         'eclick and erelease are the press and release events'
@@ -44,51 +53,19 @@ class EventHandler(object):
         self.roi = np.round(self.roi) 
         self.roi = self.roi.astype(int)
 
-    def event_exit_manager(self, event):
+    def key_pressed(self, event):
         if event.key in ['enter']:
-            #PDS_Compute_MTF(self.filename, self.roi)
-            # img_array = mtf.Helper.LoadImageAsArray(filename)
+            # Run MTF analysis
             fig = plt.figure(2) # write to figure 2 which should always show the current mtf results
             fig.clear()
             image_cropped = self.image_array[self.roi[0]:self.roi[1], self.roi[2]:self.roi[3]]
             print("Running MTF analysis")
             mtf_result = mtf.MTF.CalculateMtf(image_cropped, verbose=mtf.Verbosity.DETAIL)
-
-class ROI_selection(object):
-
-    def __init__(self, filename):
-        self.filename = filename
-        self.image_data = cv2.imread(filename, 0)
-       	fig_image, current_ax = plt.subplots()
-        plt.imshow(self.image_data, cmap='gray')
-        eh = EventHandler(self.filename)
-        rectangle_selector = RectangleSelector(current_ax,
-                                               eh.line_select_callback,
-                                               useblit=True,
-                                               button=[1, 2, 3],
-                                               minspanx=5, minspany=5,
-                                               spancoords='pixels',
-                                               interactive=True)
-        plt.connect('key_press_event', eh.event_exit_manager)
-        plt.show()
-        
-def onclick(event):
-    global video_paused
-    
-    if event.dblclick:
-        video_paused = not video_paused
-        if video_paused:
-            print("Video paused.")
-            print("- Select a rectangle for MTF analysis (hold and drag left mouse button and then press enter for confirmation)")
-            print("- After that double click the video again to resume. The MTF analysis will stay open until you do a new analysis.")
-        else:
-            print("Video resumed")
-            
-def on_key(event):
-    global close_program
-    if event.key == 'q':
-        close_program = True
-        print("Key 'q' was pressed. Closing the program")
+        elif event.key == 'q':
+            # close program
+            global close_program
+            close_program = True
+            print("Key 'q' was pressed. Closing the program")
     
 
 if __name__ == '__main__':
@@ -100,8 +77,6 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture('/dev/video0')
     fig_image, current_ax = plt.subplots()
     fig_image.canvas.manager.set_window_title('Live Video')
-    connection_id = fig_image.canvas.mpl_connect('button_press_event', onclick)
-    connection_id = fig_image.canvas.mpl_connect('key_press_event', on_key)
 
     eh = EventHandler()
     rectangle_selector = RectangleSelector(current_ax,
@@ -111,7 +86,8 @@ if __name__ == '__main__':
                                            minspanx=5, minspany=5,
                                            spancoords='pixels',
                                            interactive=True)
-    plt.connect('key_press_event', eh.event_exit_manager)
+    plt.connect('key_press_event', eh.key_pressed)
+    plt.connect('button_press_event', eh.mouse_clicked)
     
     if (cap.isOpened()== False): 
         print("Error opening video stream or file")
