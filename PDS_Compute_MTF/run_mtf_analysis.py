@@ -51,7 +51,7 @@ class EventHandler(object):
             fig = plt.figure(2) # write to figure 2 which should always show the current mtf results
             fig.clear()
             image_cropped = self.image_array[self.roi[0]:self.roi[1], self.roi[2]:self.roi[3]]
-            print(np.shape(image_cropped))
+            print("Running MTF analysis")
             mtf_result = mtf.MTF.CalculateMtf(image_cropped, verbose=mtf.Verbosity.DETAIL)
 
 class ROI_selection(object):
@@ -87,7 +87,7 @@ def onclick(event):
 def on_key(event):
     global close_program
     if event.key == 'q':
-        close_program == True
+        close_program = True
         print("Key 'q' was pressed. Closing the program")
     
 
@@ -123,16 +123,17 @@ if __name__ == '__main__':
     
     print("Double click on the video to pause and select a rectangle")
     
-    while(cap.isOpened()):
+    while(not close_program):
         if close_program:
-            break
+            print("Close program is true")
+            exit()
         if not video_paused: 
             ret, frame = cap.read()
             if ret == True:
                  #cv2.imshow('Frame',frame)
                  print("new video frame")
                  plt.figure(1)
-                 plt.title("close program by pressing any key")
+                 plt.title("close program by pressing 'q'")
                  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) / 255
                  plt.imshow(frame, cmap='gray')
                  
