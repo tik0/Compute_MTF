@@ -1,6 +1,6 @@
 # PDS_Compute_MTF x mtf.py
 
-This repository is a combination of [PDS_Compute_MTF](https://github.com/bvnayak/PDS_Compute_MTF) and [mtf.py](https://github.com/u-onder/mtf.py) for MTF (Modular Transfer Function) analysis of an image. Furthermore, new features are implemented that allow the processing of video streams.
+This repository is a combination of [PDS_Compute_MTF](https://github.com/bvnayak/PDS_Compute_MTF) and [mtf.py](https://github.com/u-onder/mtf.py) for MTF (Modulation Transfer Function) analysis of an image. Furthermore, new features are implemented that allow the processing of video streams.
 
 ## Features
 
@@ -20,7 +20,7 @@ pip install -r requirements.txt
 ## How to Use
 Run the program via:
 ```
-python -m PDS_Compute_MTF.run_mtf_analysis
+python3 -m PDS_Compute_MTF.run_mtf_analysis
 ```
 A window appears that shows the video stream from the capture device defined in PDS_Compute_MTF/run_mtf_analysis.py.
 
