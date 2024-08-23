@@ -11,9 +11,11 @@ Newly added features:
 * Edited mtf.py such that it calculates and visualizes the MTF50 value from the MTF
 * Edited the image cutout selection of PDS_Compute_MTF such that it works on video streams instead of single image files
 
-## Set-Up
+## Set-Up with Conda
 
 ```
+conda create -y --name MTF python==3.10.12
+conda activate MTF
 pip install -r requirements.txt
 ```
 
