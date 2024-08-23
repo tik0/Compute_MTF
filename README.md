@@ -9,7 +9,7 @@ This repository is a combination of [PDS_Compute_MTF](https://github.com/bvnayak
 
 Newly added features:
 * Edited mtf.py such that it calculates and visualizes the MTF50 value from the MTF
-* Edited the image cutout selection of PDS_Compute_MTF such that it works on video streams instead of singe image files
+* Edited the image cutout selection of PDS_Compute_MTF such that it works on video streams instead of single image files
 
 ## Set-Up
 
