@@ -2,9 +2,11 @@ import numpy as np
 import cv2
 import argparse
 import time
+import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.widgets import RectangleSelector
+from matplotlib.backends.backend_pdf import PdfPages
 from scipy import interpolate
 from scipy.signal import savgol_filter
 
@@ -56,8 +58,9 @@ class EventHandler(object):
     def key_pressed(self, event):
         if event.key in ['enter']:
             # Run MTF analysis
-            fig = plt.figure(2) # write to figure 2 which should always show the current mtf results
+            fig = plt.figure(2, figsize=(9, 6)) # write to figure 2 which should always show the current mtf results
             fig.clear()
+            plt.connect('key_press_event', self.key_pressed) # such that the new window inherits the key events of the main window
             image_cropped = self.image_array[self.roi[0]:self.roi[1], self.roi[2]:self.roi[3]]
             print("Running MTF analysis")
             mtf_result = mtf.MTF.CalculateMtf(image_cropped, verbose=mtf.Verbosity.DETAIL) # CHANGE TO Verbosity.DETAIL to show plots!
@@ -66,6 +69,37 @@ class EventHandler(object):
             global close_program
             close_program = True
             print("Key 'q' was pressed. Closing the program")
+        elif event.key == 'ctrl+s':
+            save_all_figures_to_pdf()
+
+def save_all_figures_to_pdf(filename_without_extension=None, directory='results'):
+    #https://stackoverflow.com/questions/26368876/saving-all-open-matplotlib-figures-in-one-file-at-once
+    os.makedirs(directory, exist_ok=True)
+    filecounter_path = os.path.join(directory, 'filecounter.data')
+    if not os.path.exists(filecounter_path):
+        with open(filecounter_path, 'x') as f:
+            f.write('1')
+            filecounter = 1
+    else:
+        with open(filecounter_path, 'r') as f:
+            filecounter = int(f.read())
+
+    if filename_without_extension:
+        filename = str(filecounter) + "_" + filename_without_extension + ".pdf"
+    else:
+        filename = str(filecounter) + ".pdf"
+
+    with PdfPages(os.path.join(directory, filename)) as pdf:
+        figs = [plt.figure(n) for n in plt.get_fignums()]
+        for fig in figs:
+            fig.savefig(pdf, format='pdf')
+
+    filecounter += 1
+    with open(filecounter_path, 'w') as f:
+        f.write(str(filecounter))
+
+    print(f"Saved the current figures to {filename}. The above expcetion (AttributeError: 'FigureCanvasPdf' object has no attribute 'copy_from_bbox') can be ignored. This happens all the time and I cannot catch this exception.")
+
     
 
 if __name__ == '__main__':
@@ -95,6 +129,9 @@ if __name__ == '__main__':
                                                spancoords='pixels',
                                                interactive=True)
         plt.connect('button_press_event', eh.mouse_clicked)
+
+    # instead use ctrl+s for my own save function that saves all open figures
+    plt.rcParams['keymap.save'].remove('ctrl+s')
     
     if (cap.isOpened()== False): 
         print("Error opening video stream or file")
@@ -108,14 +145,14 @@ if __name__ == '__main__':
     
     while(not close_program):
         if close_program:
-            print("Close program is true")
+            plt.close('all')
             exit()
         if not video_paused: 
             ret, frame = cap.read()
             if ret == True:
                  #cv2.imshow('Frame',frame)
                  print("new video frame")
-                 plt.figure(1)
+                 plt.figure(1, figsize=(9, 6))
                  plt.title("close program by pressing 'q'")
                  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) / 255
                  plt.imshow(frame, cmap='gray')

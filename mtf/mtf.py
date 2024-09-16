@@ -420,7 +420,6 @@ class MTF:
             
         filtered_edge_points = np.array(filtered_edge_points)
         
-        # Takes a linear function here
         #edgePoly = np.polyfit(line[:,1],line[:,0],1)
         edgePoly = np.polyfit(filtered_edge_points[:,1],filtered_edge_points[:,0],2)
         #x_coords = np.linspace(0, np.shape(imgArr)[1]-1, 300)
@@ -598,13 +597,13 @@ class MTF:
         interp = interpolate.interp1d(distances, values, kind='cubic',  fill_value='extrapolate')
         interpValues = interp(interpDistances)
         valueAtNyquist = interpValues[25]*100
-       
-       	interpSmallDistances = np.linspace(0,1,1001)
+
+        interpSmallDistances = np.linspace(0,1,1001)
        	#interpSmallDistances = np.linspace(np.min(distances),np.max(distances),1001)
-       	interpValuesSmallDistances = interp(interpSmallDistances)
+        interpValuesSmallDistances = interp(interpSmallDistances)
        	# get frequency where mtf is closest to 0.5
-       	index_closest_to_50 = (np.abs(interpValuesSmallDistances - 0.5)).argmin()
-       	mtf50 = index_closest_to_50 / 1000
+        index_closest_to_50 = (np.abs(interpValuesSmallDistances - 0.5)).argmin()
+        mtf50 = index_closest_to_50 / 1000
 
         if (verbose == Verbosity.BRIEF):
             print("MTF [done]")
@@ -681,6 +680,7 @@ class MTF:
             # ax4.set_title("MTF at Nyquist:{0:0.2f}%\nTransition Width:{1:0.2f}".format(mtf.mtfAtNyquist, esf.width))
             ax4.set_title("MTF50: {0:0.3f}".format(mtf.mtf50))
             ax4.grid(True)
+            ax4.set_ylabel('Contrast (%)')
             # add visual highlight of mtf50
             ax4.plot([0, mtf.mtf50], [0.5, 0.5], "r--")
             ax4.plot([mtf.mtf50, mtf.mtf50], [0.0, 0.5], "r--")
