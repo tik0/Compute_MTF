@@ -37,7 +37,6 @@ from scipy import interpolate, optimize
 from scipy.fft import fft
 from enum import Enum
 from dataclasses import dataclass
-from shapely.geometry import LineString
 
 @dataclass
 class cSet:
@@ -313,19 +312,6 @@ class MTF:
         if (distances[0] > distances[-1]):
             distances = np.flip(distances)
             values = np.flip(values)
-        
-        
-        #x = np.arange(0, np.size(imgArr,1)-1, 300)
-        #y = np.polyval(edgePoly, x)
-
-        #fig = pylab.gcf()
-        #fig.canvas.manager.set_window_title('Raw ESF')
-        #_, (ax1, ax2) = plt.subplots(2)
-        #ax1.imshow(imgArr, cmap='gray', vmin=0.0, vmax=1.0)
-        #ax1.plot(x, y, color='red')
-        #ax2.plot(distances, values)
-        #plt.show()
-        #plt.show(block=False)
 
         if (verbose == Verbosity.BRIEF):
             print("Raw ESF [done] (Distance from {0:2.2f} to {1:2.2f})".format(sign*distances[0], sign*distances[-1]))
@@ -363,8 +349,6 @@ class MTF:
         """
         imgArr = Helper.CorrectImageOrientation(imgArr)
         edgeImg = cv2.Canny(np.uint8(imgArr*255), 40, 90, L2gradient=True)
-        #fig = pylab.gcf()
-        #plt.imshow(edgeImg, cmap="gray")
 
         line = np.argwhere(edgeImg == 255)
 
@@ -422,11 +406,9 @@ class MTF:
         
         #edgePoly = np.polyfit(line[:,1],line[:,0],1)
         edgePoly = np.polyfit(filtered_edge_points[:,1],filtered_edge_points[:,0],2)
-        #x_coords = np.linspace(0, np.shape(imgArr)[1]-1, 300)
-        #plt.plot(x_coords, np.polyval(edgePoly, x_coords))
         
-        #x = line[:,1]
-        #y = line[:,0]
+        # x = line[:,1]
+        # y = line[:,0]
         x = filtered_edge_points[:,1]
         y = filtered_edge_points[:,0]
         sorted_indices = np.argsort(x)
@@ -434,7 +416,6 @@ class MTF:
         y_sorted = y[sorted_indices]
         
         angle = math.degrees(math.atan(-edgePoly[0]))
-
 
         finalEdgePoly = edgePoly.copy()
         if angle > 0:
@@ -593,13 +574,12 @@ class MTF:
         # Quick fix because interpolation throws an error for bad ESF functions: fill_value='extrapolate'
         # Enabling extrapolation can be dangerous I think and should ideally not be used
         interpDistances = np.linspace(0,1,50)
-        #interpDistances = np.linspace(np.min(distances),np.max(distances),50)
         interp = interpolate.interp1d(distances, values, kind='cubic',  fill_value='extrapolate')
         interpValues = interp(interpDistances)
         valueAtNyquist = interpValues[25]*100
 
+        # evaluate the mtf function at more indices (smaller interpolation distances) to find the mtf50 value
         interpSmallDistances = np.linspace(0,1,1001)
-       	#interpSmallDistances = np.linspace(np.min(distances),np.max(distances),1001)
         interpValuesSmallDistances = interp(interpSmallDistances)
        	# get frequency where mtf is closest to 0.5
         index_closest_to_50 = (np.abs(interpValuesSmallDistances - 0.5)).argmin()
@@ -610,11 +590,9 @@ class MTF:
 
         elif (verbose == Verbosity.DETAIL):
             fig = pylab.gcf()
-            # fig.canvas.manager.set_window_title("MTF ({0:2.2f}% at Nyquist)".format(valueAtNyquist))
             fig.canvas.manager.set_window_title("MTF50 {0:0.3f}%".format(mtf50))
             (ax1) = plt.subplots(1)
             ax1.plot(interpDistances, interpValues)
-            #ax1.plot( values)
             plt.show(block=False)
             plt.show()
         
@@ -639,13 +617,11 @@ class MTF:
         esf = MTF.GetEdgeSpreadFunctionCrop(imgArr, Verbosity.NONE)
         lsf = MTF.GetLineSpreadFunction(esf.interpESF, True, Verbosity.NONE)
         mtf = MTF.GetMTF(lsf, Verbosity.NONE)
-        
-        #x = [0, np.size(imgArr,1)-1]
+
         x = np.linspace(0, np.size(imgArr,1)-1, 100)
         y = np.polyval(esf.edgePoly, x)
 
         if (verbose == Verbosity.BRIEF):
-            #print("MTF at Nyquist:{0:0.2f}%, Transition Width:{1:0.2f}".format(mtf.mtfAtNyquist, esf.width))
             print("MTF50 {0:0.3f}%".format(mtf.mtf50))
 
         elif (verbose == Verbosity.DETAIL):
@@ -656,13 +632,15 @@ class MTF:
             ax1 = fig.add_subplot(gs[0, 0])
             ax2 = fig.add_subplot(gs[1, 0])
             ax3 = fig.add_subplot(gs[2, 0])
-            #ax5 = fig.add_subplot(gs[3, 0])
             ax4 = fig.add_subplot(gs[:, 1])
 
+            # Show Edge
             ax1.imshow(imgArr, cmap='gray', vmin=0.0, vmax=1.0)
             ax1.plot(x, y, color='red')
             ax1.axis('off')
             ax1.set_title("Detected Edge")
+
+            # Show ESF
             ax2.plot(esf.rawESF.x, esf.rawESF.y,
                      esf.interpESF.x, esf.interpESF.y)
             ax2.set_title("Edge Spread Function")
@@ -672,20 +650,21 @@ class MTF:
             ax2.plot([esf.rawESF.x[0], esf.rawESF.x[-1]], [bot, bot], color='red')
             ax2.xaxis.set_visible(False)
             ax2.yaxis.set_visible(False)
+
+            # Show LSF
             ax3.plot(lsf.x, lsf.y)
             ax3.set_title("Line Spread Function")
             ax3.xaxis.set_visible(False)
             ax3.yaxis.set_visible(False)
+            
+            # Show MTF
             ax4.plot(mtf.x, mtf.y)
-            # ax4.set_title("MTF at Nyquist:{0:0.2f}%\nTransition Width:{1:0.2f}".format(mtf.mtfAtNyquist, esf.width))
             ax4.set_title("MTF50: {0:0.3f}".format(mtf.mtf50))
             ax4.grid(True)
             ax4.set_ylabel('Contrast (%)')
             # add visual highlight of mtf50
             ax4.plot([0, mtf.mtf50], [0.5, 0.5], "r--")
             ax4.plot([mtf.mtf50, mtf.mtf50], [0.0, 0.5], "r--")
-            
-            #ax5.imshow(imgEdge)
 
             plt.show(block=False)
             plt.show()

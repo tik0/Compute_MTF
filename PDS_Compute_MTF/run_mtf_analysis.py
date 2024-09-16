@@ -12,30 +12,13 @@ from scipy.signal import savgol_filter
 
 from mtf import mtf
 
-# Reference:
-# http://stackoverflow.com/questions/6518811/interpolate-nan-values-in-a-numpy-array
-def nan_helper(y):
-    """Helper to handle indices and logical indices of NaNs.
-
-    Input:
-        - y, 1d numpy array with possible NaNs
-    Output:
-        - nans, logical indices of NaNs
-        - index, a function, with signature indices= index(logical_indices),
-          to convert logical indices of NaNs to 'equivalent' indices
-    Example:
-        >>> # linear interpolation of NaNs
-        >>> nans, x= nan_helper(y)
-        >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
-    """
-
-    return np.isnan(y), lambda z: z.nonzero()[0]
-
 
 class EventHandler(object):
 
     def __init__(self):
         self.image_array = None
+        # shows a text below the figure with the coordinates of the current rectangle
+        self.coordinates_text = plt.figtext(0.5, 0.01, "", ha="center")
         
     def mouse_clicked(self, event):
         global video_paused
@@ -54,6 +37,8 @@ class EventHandler(object):
         # round roi to full pixels
         self.roi = np.round(self.roi) 
         self.roi = self.roi.astype(int)
+        self.coordinates_text.set_text(f"ROI coordinates: ({int(x1)}, {int(y1)}), ({int(x2)}, {int(y2)})")
+        plt.draw()
 
     def key_pressed(self, event):
         if event.key in ['enter']:
@@ -71,6 +56,7 @@ class EventHandler(object):
             print("Key 'q' was pressed. Closing the program")
         elif event.key == 'ctrl+s':
             save_all_figures_to_pdf()
+
 
 def save_all_figures_to_pdf(filename_without_extension=None, directory='results'):
     #https://stackoverflow.com/questions/26368876/saving-all-open-matplotlib-figures-in-one-file-at-once
@@ -99,7 +85,6 @@ def save_all_figures_to_pdf(filename_without_extension=None, directory='results'
         f.write(str(filecounter))
 
     print(f"Saved the current figures to {filename}. The above expcetion (AttributeError: 'FigureCanvasPdf' object has no attribute 'copy_from_bbox') can be ignored. This happens all the time and I cannot catch this exception.")
-
     
 
 if __name__ == '__main__':
@@ -179,11 +164,11 @@ if __name__ == '__main__':
                  #if plt.waitforbuttonpress(0.001):
                  #    break
                  
-                 plt.pause(0.001)
+                 plt.pause(0.0001)
                  
             else:
                 break
         else:
-            plt.pause(0.001)
+            plt.pause(0.0001)
    	   
     	
