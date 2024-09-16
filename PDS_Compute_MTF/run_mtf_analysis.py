@@ -127,6 +127,26 @@ if __name__ == '__main__':
     last_click_time = 0
     
     print("Double click on the video to pause and select a rectangle")
+
+    plt.figure(1, figsize=(9, 6))
+    plt.title("close program by pressing 'q'")
+    ret, frame = cap.read()
+    plot = plt.imshow(frame, cmap='gray')
+    plt.ion()
+    axis = plt.gca()
+
+    if fixed_roi:
+        rectangle_width = np.abs(x2-x1)
+        rectangle_height = np.abs(y2-y1)
+        axis.add_patch(
+            mpatches.Rectangle(
+                (x1,y1),rectangle_width,rectangle_height,
+                linewidth=1,edgecolor='r',facecolor='none'
+            )
+        )
+        plt.suptitle("Using a fixed ROI")
+    else:
+        plt.suptitle("Select ROI with the mouse")
     
     while(not close_program):
         if close_program:
@@ -135,25 +155,13 @@ if __name__ == '__main__':
         if not video_paused: 
             ret, frame = cap.read()
             if ret == True:
-                 #cv2.imshow('Frame',frame)
                  print("new video frame")
-                 plt.figure(1, figsize=(9, 6))
-                 plt.title("close program by pressing 'q'")
-                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) / 255
-                 plt.imshow(frame, cmap='gray')
-                 if fixed_roi:
-                    rectangle_width = np.abs(x2-x1)
-                    rectangle_height = np.abs(y2-y1)
-                    plt.gca().add_patch(
-                        mpatches.Rectangle(
-                            (x1,y1),rectangle_width,rectangle_height,
-                            linewidth=1,edgecolor='r',facecolor='none'
-                        )
-                    )
-                    plt.suptitle("Using a fixed ROI")
-                 else:
-                    plt.suptitle("Select ROI with the mouse")
+                 #plt.figure(1, figsize=(9, 6))
+                 #plt.title("close program by pressing 'q'")
+                 #plt.imshow(frame, cmap='gray')
+                 plot.set_data(frame)
                  
+                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) / 255
                  eh.image_array = frame
                  
                  
@@ -164,11 +172,11 @@ if __name__ == '__main__':
                  #if plt.waitforbuttonpress(0.001):
                  #    break
                  
-                 plt.pause(0.0001)
+                 plt.pause(0.00001)
                  
             else:
                 break
         else:
-            plt.pause(0.0001)
+            plt.pause(0.00001)
    	   
     	

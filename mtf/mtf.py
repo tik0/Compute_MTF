@@ -418,10 +418,11 @@ class MTF:
         angle = math.degrees(math.atan(-edgePoly[0]))
 
         finalEdgePoly = edgePoly.copy()
-        if angle > 0:
-            imgArr = np.flip(imgArr, axis=1)
-            finalEdgePoly[1] = np.polyval(edgePoly,np.size(imgArr,1)-1)
-            finalEdgePoly[0] = -edgePoly[0]
+        #if angle > 0:
+        #    print("Image flipped")
+        #    imgArr = np.flip(imgArr, axis=1)
+        #    finalEdgePoly[1] = np.polyval(edgePoly,np.size(imgArr,1)-1)
+        #    finalEdgePoly[0] = -edgePoly[0]
 
         esf = MTF.GetEdgeSpreadFunction(imgArr, finalEdgePoly, Verbosity.NONE)
 
@@ -574,6 +575,7 @@ class MTF:
         # Quick fix because interpolation throws an error for bad ESF functions: fill_value='extrapolate'
         # Enabling extrapolation can be dangerous I think and should ideally not be used
         interpDistances = np.linspace(0,1,50)
+        global interp
         interp = interpolate.interp1d(distances, values, kind='cubic',  fill_value='extrapolate')
         interpValues = interp(interpDistances)
         valueAtNyquist = interpValues[25]*100
@@ -648,24 +650,31 @@ class MTF:
             bot = np.min(esf.rawESF.y)+esf.threshold
             ax2.plot([esf.rawESF.x[0], esf.rawESF.x[-1]], [top, top], color='red')
             ax2.plot([esf.rawESF.x[0], esf.rawESF.x[-1]], [bot, bot], color='red')
-            ax2.xaxis.set_visible(False)
-            ax2.yaxis.set_visible(False)
+            ax2.set_xticks([0.0])
+            ax2.set_yticks([np.round(np.max(esf.rawESF.y), 2), np.round(np.min(esf.rawESF.y), 2)])
+            ax2.set_xlabel("Distance from Edge")
+            ax2.set_ylabel("Pixel Intensity")
 
             # Show LSF
             ax3.plot(lsf.x, lsf.y)
             ax3.set_title("Line Spread Function")
-            ax3.xaxis.set_visible(False)
-            ax3.yaxis.set_visible(False)
+            ax3.set_xticks([0.0])
+            ax3.set_yticks([])
+            ax3.set_xlabel("Distance from Edge")
+            ax3.set_ylabel("Change of \n Pixel Intensity")
             
             # Show MTF
             ax4.plot(mtf.x, mtf.y)
             ax4.set_title("MTF50: {0:0.3f}".format(mtf.mtf50))
             ax4.grid(True)
             ax4.set_ylabel('Contrast (%)')
+            ax4.set_xlabel('Line Pairs per Pixel')
+            ax4.set_ylim([0.0, 1.0])
             # add visual highlight of mtf50
             ax4.plot([0, mtf.mtf50], [0.5, 0.5], "r--")
             ax4.plot([mtf.mtf50, mtf.mtf50], [0.0, 0.5], "r--")
 
+            plt.tight_layout()
             plt.show(block=False)
             plt.show()
 
