@@ -33,10 +33,11 @@ import cv2 as cv2
 import math as math
 
 from PIL import Image, ImageOps
-from scipy import interpolate
+from scipy import interpolate, optimize
 from scipy.fft import fft
 from enum import Enum
 from dataclasses import dataclass
+from shapely.geometry import LineString
 
 @dataclass
 class cSet:
@@ -295,12 +296,13 @@ class MTF:
 
         distance = np.zeros((Y,X))
         column = np.arange(0,X)+0.5
+                
         for y in range(Y):
-            distance[y,:] = (edgePoly[0]*column - (y+0.5) + edgePoly[1]) / np.sqrt(edgePoly[0]*edgePoly[0] + 1)
-
+          for x in range(X):
+            distance[y,x] = np.polyval(edgePoly, x) - y # edgePoly[0]*column - (y+0.5) + edgePoly[1]) / np.sqrt(edgePoly[0]*edgePoly[0] + 1)
         distances = np.reshape(distance, X*Y)
         indexes = np.argsort(distances)
-        
+
         sign = 1
         if np.average(values[indexes[:10]]) > np.average(values[indexes[-10:]]):
             sign = -1
@@ -311,12 +313,25 @@ class MTF:
         if (distances[0] > distances[-1]):
             distances = np.flip(distances)
             values = np.flip(values)
+        
+        
+        #x = np.arange(0, np.size(imgArr,1)-1, 300)
+        #y = np.polyval(edgePoly, x)
+
+        #fig = pylab.gcf()
+        #fig.canvas.manager.set_window_title('Raw ESF')
+        #_, (ax1, ax2) = plt.subplots(2)
+        #ax1.imshow(imgArr, cmap='gray', vmin=0.0, vmax=1.0)
+        #ax1.plot(x, y, color='red')
+        #ax2.plot(distances, values)
+        #plt.show()
+        #plt.show(block=False)
 
         if (verbose == Verbosity.BRIEF):
             print("Raw ESF [done] (Distance from {0:2.2f} to {1:2.2f})".format(sign*distances[0], sign*distances[-1]))
 
         elif (verbose == Verbosity.DETAIL):
-            x = [0, np.size(imgArr,1)-1]
+            x = np.arange(0, np.size(imgArr,1)-1, 300)
             y = np.polyval(edgePoly, x)
 
             fig = pylab.gcf()
@@ -348,10 +363,79 @@ class MTF:
         """
         imgArr = Helper.CorrectImageOrientation(imgArr)
         edgeImg = cv2.Canny(np.uint8(imgArr*255), 40, 90, L2gradient=True)
+        #fig = pylab.gcf()
+        #plt.imshow(edgeImg, cmap="gray")
 
         line = np.argwhere(edgeImg == 255)
-        edgePoly = np.polyfit(line[:,1],line[:,0],1)
+
+        # remove outliers
+        # Idea: For some x values there are multiple detected egde points
+        #       Keep only the one edge point with has the most similar y value to the selected edge point with the previous x value
+        filtered_edge_points = []
+        safe_edge_points = []
+        
+        unique_x_indices, x_indices_count = np.unique(line[:,1], return_counts=True)
+        
+        # safe edge point: edge point that is the only edge point with the given x coordinate
+        # safe edge x index: x position in the image where only a single edge point is detected
+        safe_edge_x_indices = unique_x_indices[np.where(x_indices_count==1)]
+        safe_edge_points = line[np.isin(line[:,1], safe_edge_x_indices)]
+        filtered_edge_points.extend(list(safe_edge_points))
+        
+        unsafe_edge_x_indices = unique_x_indices[np.where(x_indices_count > 1)]
+        
+        # prevent infinite loops by counting the number of times the loop has run
+        num_runs = 0
+        
+        while len(unsafe_edge_x_indices) > 0 and num_runs < 100:
+            unique_filtered_x_indices, filtered_x_count = np.unique(np.array(filtered_edge_points)[:,1], return_counts=True)
+            # safe filtered indices are initially safe x coordinates or x coordinates where the other edge points where already removed
+            safe_filtered_x_indices = unique_filtered_x_indices[np.where(filtered_x_count == 1)]
+            
+            to_remove = []
+            num_runs += 1
+            
+            # look if the right or left neighbor is a safe edge point
+            for x in unsafe_edge_x_indices:
+                neighboring_safe_x_index = -1
+                if x+1 in safe_filtered_x_indices:
+                    neighboring_safe_x_index = x+1
+                elif x-1 in safe_filtered_x_indices:
+                    neighboring_safe_x_index = x-1
+                else:
+                    continue
+                
+                # compare all edge points at this x coordinate to the neighboring safe edge point
+                # only keep the edge point at this coordinate which has the most similar y value to the neighboring safe edge point
+                unsafe_edge_points_at_x = line[np.where(line[:,1] == x)]
+                safe_neighbor_edge_point = np.array(filtered_edge_points)[np.where(np.array(filtered_edge_points)[:,1] == neighboring_safe_x_index)][0]
+                best_unsafe_point_idx = np.abs(unsafe_edge_points_at_x[:,0] - safe_neighbor_edge_point[0]).argmin()
+                best_unsafe_point = unsafe_edge_points_at_x[best_unsafe_point_idx]
+                
+                filtered_edge_points.append(list(best_unsafe_point))
+                
+                to_remove.append(x)
+                
+            unsafe_edge_x_indices = [x for x in unsafe_edge_x_indices if x not in to_remove]
+            
+        filtered_edge_points = np.array(filtered_edge_points)
+        
+        # Takes a linear function here
+        #edgePoly = np.polyfit(line[:,1],line[:,0],1)
+        edgePoly = np.polyfit(filtered_edge_points[:,1],filtered_edge_points[:,0],2)
+        #x_coords = np.linspace(0, np.shape(imgArr)[1]-1, 300)
+        #plt.plot(x_coords, np.polyval(edgePoly, x_coords))
+        
+        #x = line[:,1]
+        #y = line[:,0]
+        x = filtered_edge_points[:,1]
+        y = filtered_edge_points[:,0]
+        sorted_indices = np.argsort(x)
+        x_sorted = x[sorted_indices]
+        y_sorted = y[sorted_indices]
+        
         angle = math.degrees(math.atan(-edgePoly[0]))
+
 
         finalEdgePoly = edgePoly.copy()
         if angle > 0:
@@ -507,12 +591,16 @@ class MTF:
         values = 1/np.sum(lsf.y)*abs(fft(lsf.y))
         distances = np.arange(0,N)/N*px
 
+        # Quick fix because interpolation throws an error for bad ESF functions: fill_value='extrapolate'
+        # Enabling extrapolation can be dangerous I think and should ideally not be used
         interpDistances = np.linspace(0,1,50)
-        interp = interpolate.interp1d(distances, values, kind='cubic')
+        #interpDistances = np.linspace(np.min(distances),np.max(distances),50)
+        interp = interpolate.interp1d(distances, values, kind='cubic',  fill_value='extrapolate')
         interpValues = interp(interpDistances)
         valueAtNyquist = interpValues[25]*100
        
        	interpSmallDistances = np.linspace(0,1,1001)
+       	#interpSmallDistances = np.linspace(np.min(distances),np.max(distances),1001)
        	interpValuesSmallDistances = interp(interpSmallDistances)
        	# get frequency where mtf is closest to 0.5
        	index_closest_to_50 = (np.abs(interpValuesSmallDistances - 0.5)).argmin()
@@ -552,14 +640,16 @@ class MTF:
         esf = MTF.GetEdgeSpreadFunctionCrop(imgArr, Verbosity.NONE)
         lsf = MTF.GetLineSpreadFunction(esf.interpESF, True, Verbosity.NONE)
         mtf = MTF.GetMTF(lsf, Verbosity.NONE)
+        
+        #x = [0, np.size(imgArr,1)-1]
+        x = np.linspace(0, np.size(imgArr,1)-1, 100)
+        y = np.polyval(esf.edgePoly, x)
 
         if (verbose == Verbosity.BRIEF):
             #print("MTF at Nyquist:{0:0.2f}%, Transition Width:{1:0.2f}".format(mtf.mtfAtNyquist, esf.width))
             print("MTF50 {0:0.3f}%".format(mtf.mtf50))
 
         elif (verbose == Verbosity.DETAIL):
-            x = [0, np.size(imgArr,1)-1]
-            y = np.polyval(esf.edgePoly, x)
 
             fig = pylab.gcf()
             fig.canvas.manager.set_window_title('MTF Analysis')
@@ -567,6 +657,7 @@ class MTF:
             ax1 = fig.add_subplot(gs[0, 0])
             ax2 = fig.add_subplot(gs[1, 0])
             ax3 = fig.add_subplot(gs[2, 0])
+            #ax5 = fig.add_subplot(gs[3, 0])
             ax4 = fig.add_subplot(gs[:, 1])
 
             ax1.imshow(imgArr, cmap='gray', vmin=0.0, vmax=1.0)
@@ -593,6 +684,8 @@ class MTF:
             # add visual highlight of mtf50
             ax4.plot([0, mtf.mtf50], [0.5, 0.5], "r--")
             ax4.plot([mtf.mtf50, mtf.mtf50], [0.0, 0.5], "r--")
+            
+            #ax5.imshow(imgEdge)
 
             plt.show(block=False)
             plt.show()

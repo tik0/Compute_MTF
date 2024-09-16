@@ -60,7 +60,7 @@ class EventHandler(object):
             fig.clear()
             image_cropped = self.image_array[self.roi[0]:self.roi[1], self.roi[2]:self.roi[3]]
             print("Running MTF analysis")
-            mtf_result = mtf.MTF.CalculateMtf(image_cropped, verbose=mtf.Verbosity.DETAIL)
+            mtf_result = mtf.MTF.CalculateMtf(image_cropped, verbose=mtf.Verbosity.DETAIL) # CHANGE TO Verbosity.DETAIL to show plots!
         elif event.key == 'q':
             # close program
             global close_program
@@ -69,25 +69,32 @@ class EventHandler(object):
     
 
 if __name__ == '__main__':
-    #parser = argparse.ArgumentParser()
-    #parser.add_argument('filepath', help='String Filepath')
-    #args = parser.parse_args()
-    #filename = args.filepath
-    #ROI_selection(filename)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--roi', nargs=4, type=int, 
+                        help='x1,y1 (top left) and x2,y2 (bottom right) coordinates of the roi in the format: "--roi x1 y1 x2 y2"')
+    args = parser.parse_args()
+    fixed_roi = False
+    x1, y1, x2, y2 = [-1]*4
+    if args.roi:
+        fixed_roi = True
+        x1, y1, x2, y2 = args.roi
     cap = cv2.VideoCapture('/dev/video0')
     fig_image, current_ax = plt.subplots()
     fig_image.canvas.manager.set_window_title('Live Video')
 
     eh = EventHandler()
-    rectangle_selector = RectangleSelector(current_ax,
-                                           eh.line_select_callback,
-                                           useblit=True,
-                                           button=[1, 2, 3],
-                                           minspanx=5, minspany=5,
-                                           spancoords='pixels',
-                                           interactive=True)
     plt.connect('key_press_event', eh.key_pressed)
-    plt.connect('button_press_event', eh.mouse_clicked)
+    if fixed_roi:
+        eh.roi = [y1, y2, x1, x2]
+    else:
+        rectangle_selector = RectangleSelector(current_ax,
+                                               eh.line_select_callback,
+                                               useblit=True,
+                                               button=[1, 2, 3],
+                                               minspanx=5, minspany=5,
+                                               spancoords='pixels',
+                                               interactive=True)
+        plt.connect('button_press_event', eh.mouse_clicked)
     
     if (cap.isOpened()== False): 
         print("Error opening video stream or file")
@@ -112,6 +119,18 @@ if __name__ == '__main__':
                  plt.title("close program by pressing 'q'")
                  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) / 255
                  plt.imshow(frame, cmap='gray')
+                 if fixed_roi:
+                    rectangle_width = np.abs(x2-x1)
+                    rectangle_height = np.abs(y2-y1)
+                    plt.gca().add_patch(
+                        mpatches.Rectangle(
+                            (x1,y1),rectangle_width,rectangle_height,
+                            linewidth=1,edgecolor='r',facecolor='none'
+                        )
+                    )
+                    plt.suptitle("Using a fixed ROI")
+                 else:
+                    plt.suptitle("Select ROI with the mouse")
                  
                  eh.image_array = frame
                  
